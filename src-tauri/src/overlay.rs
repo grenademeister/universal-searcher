@@ -1,11 +1,14 @@
-use serde::Serialize;
 use reqwest::Client;
+use serde::Serialize;
 use serde_json::Value;
 use std::env;
 use std::process::Command;
 
-const DEFAULT_PROMPT: &str = "Answer concisely based on the provided text.";
-const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_PROMPT: &str = "Answer concisely based on the user's selected text. \
+ If the text is a question, provide a clear and direct answer with one or few sentences. \
+ If the text is a word or phrase, give a brief definition or explanation. \
+ If the text is a code snippet, explain its purpose in simple terms.";
+const DEFAULT_OPENAI_MODEL: &str = "gpt-5-mini";
 const DEFAULT_GEMINI_MODEL: &str = "gemini-2.5-flash";
 
 #[derive(Serialize)]
@@ -48,10 +51,12 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
 
     if selection.trim().is_empty() {
         let model = match provider {
-            Provider::OpenAi => env::var("OPENAI_MODEL")
-                .unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string()),
-            Provider::Gemini => env::var("GEMINI_MODEL")
-                .unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string()),
+            Provider::Gemini => {
+                env::var("GEMINI_MODEL").unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string())
+            }
+            Provider::OpenAi => {
+                env::var("OPENAI_MODEL").unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string())
+            }
         };
 
         return Ok(OverlayResponse {
@@ -65,11 +70,11 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
 
     let (text, model) = match provider {
         Provider::OpenAi => {
-            let api_key = env::var("OPENAI_API_KEY")
-                .map_err(|_| "OPENAI_API_KEY is not set".to_string())?;
+            let api_key =
+                env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY is not set".to_string())?;
 
-            let model = env::var("OPENAI_MODEL")
-                .unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string());
+            let model =
+                env::var("OPENAI_MODEL").unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string());
 
             let reply = query_openai(&client, &api_key, &model, &prompt, &selection).await?;
             (reply, model)
@@ -79,8 +84,8 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
                 .or_else(|_| env::var("GEMINI_API_TOKEN"))
                 .map_err(|_| "GEMINI_API_KEY or GEMINI_API_TOKEN is not set".to_string())?;
 
-            let model = env::var("GEMINI_MODEL")
-                .unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string());
+            let model =
+                env::var("GEMINI_MODEL").unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string());
 
             let reply = query_gemini(&client, &api_key, &model, &prompt, &selection).await?;
             (reply, model)
@@ -203,7 +208,12 @@ async fn query_gemini(
         ],
         "systemInstruction": {
             "parts": [{ "text": prompt }]
+        },
+        "tools": [
+        {
+            "google_search": serde_json::json!({})
         }
+        ]
     });
 
     let mut req = client.post(&url).json(&body);
