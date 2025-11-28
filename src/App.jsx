@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
@@ -21,6 +23,12 @@ const initialModelIndices = Object.fromEntries(
     return [prov, idx >= 0 ? idx : 0];
   }),
 );
+
+const markdownComponents = {
+  a: ({ node, ...props }) => (
+    <a {...props} target="_blank" rel="noreferrer" />
+  ),
+};
 
 function App() {
   const [overlay, setOverlay] = useState({
@@ -205,9 +213,18 @@ function App() {
               ? `${overlay.query.slice(0, 47)}...`
               : overlay.query || "(empty)"}
         </p>
-        <p className={`overlay-text ${error ? "error" : ""}`}>
-          {loading ? "Loading…" : error || overlay.text}
-        </p>
+        <div className={`overlay-text ${error ? "error" : ""}`}>
+          {loading && <p className="overlay-status">Loading…</p>}
+          {!loading && error && <p className="overlay-status">{error}</p>}
+          {!loading && !error && (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {overlay.text || ""}
+            </ReactMarkdown>
+          )}
+        </div>
       </section>
     </main>
   );

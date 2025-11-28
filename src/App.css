@@ -51,13 +51,85 @@ body {
   width: 100%;
   max-width: 880px;
   color: #e9ecf1;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   text-align: left;
+  line-height: 1.6;
 }
 
 .overlay-text.error {
   color: #f29b9b;
+}
+
+.overlay-status {
+  margin: 0;
+}
+
+.overlay-text p {
+  margin: 0 0 8px;
+}
+
+.overlay-text h1,
+.overlay-text h2,
+.overlay-text h3 {
+  margin: 12px 0 8px;
+  line-height: 1.3;
+}
+
+.overlay-text h1 {
+  font-size: 1.4rem;
+}
+
+.overlay-text h2 {
+  font-size: 1.2rem;
+}
+
+.overlay-text h3 {
+  font-size: 1rem;
+}
+
+.overlay-text ul,
+.overlay-text ol {
+  margin: 0 0 10px 20px;
+  padding: 0;
+}
+
+.overlay-text li {
+  margin-bottom: 4px;
+}
+
+.overlay-text blockquote {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 3px solid rgba(233, 236, 241, 0.25);
+  color: #cbd3e1;
+}
+
+.overlay-text code {
+  background: rgba(233, 236, 241, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+.overlay-text pre {
+  background: rgba(233, 236, 241, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 10px 0;
+  font-size: 0.95em;
+}
+
+.overlay-text pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.overlay-text a {
+  color: #9dd4ff;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
 }
 
 .overlay-meta {
