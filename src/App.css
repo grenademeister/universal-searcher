@@ -32,7 +32,7 @@ body {
 .panel {
   max-width: 960px;
   min-width: 160px;
-  width: auto;
+  width: 100%;
   padding: 0;
   background: transparent;
   border: none;
@@ -41,14 +41,14 @@ body {
   backdrop-filter: none;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .overlay-text {
   margin: 0;
   padding: 0;
-  width: auto;
+  width: 100%;
   max-width: 880px;
   color: #e9ecf1;
   white-space: pre-wrap;
@@ -64,4 +64,14 @@ body {
   margin: 0;
   color: #9aa2b5;
   font-size: 0.9rem;
+  align-self: center;
+}
+
+.overlay-query {
+  margin: 0;
+  color: #cbd3e1;
+  font-weight: 500;
+  width: 100%;
+  max-width: 880px;
+  text-align: left;
 }

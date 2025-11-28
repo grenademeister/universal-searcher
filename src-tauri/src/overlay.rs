@@ -19,6 +19,7 @@ pub struct OverlayResponse {
     pub text: String,
     pub provider: String,
     pub model: String,
+    pub query: String,
 }
 
 #[derive(Clone, Copy)]
@@ -52,27 +53,34 @@ impl Provider {
     }
 }
 
-pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, String> {
+pub async fn generate(
+    provider: Option<String>,
+    model: Option<String>,
+) -> Result<OverlayResponse, String> {
     let selection = fetch_selection()?;
 
     let provider = Provider::from_option(provider);
     let prompt = env::var("OVERLAY_PROMPT").unwrap_or_else(|_| DEFAULT_PROMPT.to_string());
+    let requested_model = model;
 
     if selection.trim().is_empty() {
         let model = match provider {
-            Provider::Gemini => {
+            Provider::Gemini => requested_model.clone().unwrap_or_else(|| {
                 env::var("GEMINI_MODEL").unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string())
-            }
-            Provider::OpenAi => {
+            }),
+            Provider::OpenAi => requested_model.clone().unwrap_or_else(|| {
                 env::var("OPENAI_MODEL").unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string())
-            }
-            Provider::Wikipedia => DEFAULT_WIKIPEDIA_MODEL.to_string(),
+            }),
+            Provider::Wikipedia => requested_model
+                .clone()
+                .unwrap_or_else(|| DEFAULT_WIKIPEDIA_MODEL.to_string()),
         };
 
         return Ok(OverlayResponse {
             text: "(empty)".to_string(),
             provider: provider.label().to_string(),
             model,
+            query: selection.clone(),
         });
     }
 
@@ -83,8 +91,9 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
             let api_key =
                 env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY is not set".to_string())?;
 
-            let model =
-                env::var("OPENAI_MODEL").unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string());
+            let model = requested_model.clone().unwrap_or_else(|| {
+                env::var("OPENAI_MODEL").unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string())
+            });
 
             let reply = query_openai(&client, &api_key, &model, &prompt, &selection).await?;
             (reply, model)
@@ -94,14 +103,17 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
                 .or_else(|_| env::var("GEMINI_API_TOKEN"))
                 .map_err(|_| "GEMINI_API_KEY or GEMINI_API_TOKEN is not set".to_string())?;
 
-            let model =
-                env::var("GEMINI_MODEL").unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string());
+            let model = requested_model.clone().unwrap_or_else(|| {
+                env::var("GEMINI_MODEL").unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string())
+            });
 
             let reply = query_gemini(&client, &api_key, &model, &prompt, &selection).await?;
             (reply, model)
         }
         Provider::Wikipedia => {
-            let model = DEFAULT_WIKIPEDIA_MODEL.to_string();
+            let model = requested_model
+                .clone()
+                .unwrap_or_else(|| DEFAULT_WIKIPEDIA_MODEL.to_string());
             let reply = query_wikipedia(&client, &selection).await?;
             (reply, model)
         }
@@ -111,6 +123,7 @@ pub async fn generate(provider: Option<String>) -> Result<OverlayResponse, Strin
         text,
         provider: provider.label().to_string(),
         model,
+        query: selection,
     })
 }
 
@@ -274,18 +287,47 @@ async fn query_gemini(
     }
 }
 
-fn extract_content_path(search_html: &str) -> Option<String> {
-    for needle in ["href=\"/content/", "href=\"/resources/"] {
-        if let Some(idx) = search_html.find(needle) {
-            let start = idx + "href=\"".len();
-            if let Some(rest) = search_html.get(start..) {
-                if let Some(end) = rest.find('"') {
-                    return Some(rest[..end].trim_start_matches('/').to_string());
-                }
-            }
+fn normalize_query(value: &str) -> String {
+    value
+        .replace('_', " ")
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn extract_content_path(search_html: &str, query: &str) -> Option<String> {
+    let document = Html::parse_document(search_html);
+    let selector = Selector::parse("a[href]").ok()?;
+    let mut first_link: Option<String> = None;
+    let norm_query = normalize_query(query);
+
+    for anchor in document.select(&selector) {
+        let href = anchor.value().attr("href")?;
+        if !href.starts_with("/content/") && !href.starts_with("/resources/") {
+            continue;
+        }
+
+        let path = href.trim_start_matches('/').to_string();
+        if first_link.is_none() {
+            first_link = Some(path.clone());
+        }
+
+        let title = anchor.text().collect::<Vec<_>>().join(" ");
+        let norm_title = normalize_query(&title);
+
+        let last_segment = href
+            .rsplit('/')
+            .next()
+            .map(|seg| normalize_query(seg))
+            .unwrap_or_default();
+
+        if norm_title == norm_query || last_segment == norm_query {
+            return Some(path);
         }
     }
-    None
+
+    first_link
 }
 
 pub async fn query_wikipedia(client: &Client, selection: &str) -> Result<String, String> {
@@ -303,7 +345,7 @@ pub async fn query_wikipedia(client: &Client, selection: &str) -> Result<String,
         .await
         .map_err(|e| format!("failed to read search response: {e}"))?;
 
-    let content_path = extract_content_path(&search_html)
+    let content_path = extract_content_path(&search_html, selection)
         .ok_or_else(|| "no wikipedia matches found in search results".to_string())?;
 
     let article_resp = client
@@ -387,14 +429,14 @@ mod tests {
         </html>
         "#;
 
-        let path = extract_content_path(sample).expect("expected first link");
+        let path = extract_content_path(sample, "bird").expect("expected first link");
         assert_eq!(path, "content/wikipedia_en_100_mini_2025-10/Bird");
     }
 
     #[test]
     fn returns_none_when_no_links_found() {
         let sample = "<html><body><p>No results</p></body></html>";
-        assert!(extract_content_path(sample).is_none());
+        assert!(extract_content_path(sample, "none").is_none());
     }
 
     #[test]
