@@ -287,20 +287,24 @@ async fn query_gemini(
     }
 }
 
-fn normalize_query(value: &str) -> String {
-    value
-        .replace('_', " ")
-        .to_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+fn to_title_slug(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let lower = trimmed.to_lowercase().replace(' ', "_");
+    let mut chars = lower.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
 }
 
 fn extract_content_path(search_html: &str, query: &str) -> Option<String> {
     let document = Html::parse_document(search_html);
     let selector = Selector::parse("a[href]").ok()?;
     let mut first_link: Option<String> = None;
-    let norm_query = normalize_query(query);
+    let norm_query = to_title_slug(query);
 
     for anchor in document.select(&selector) {
         let href = anchor.value().attr("href")?;
@@ -313,16 +317,9 @@ fn extract_content_path(search_html: &str, query: &str) -> Option<String> {
             first_link = Some(path.clone());
         }
 
-        let title = anchor.text().collect::<Vec<_>>().join(" ");
-        let norm_title = normalize_query(&title);
+        let last_segment = href.rsplit('/').next().unwrap_or_default();
 
-        let last_segment = href
-            .rsplit('/')
-            .next()
-            .map(|seg| normalize_query(seg))
-            .unwrap_or_default();
-
-        if norm_title == norm_query || last_segment == norm_query {
+        if last_segment == norm_query {
             return Some(path);
         }
     }
@@ -333,6 +330,7 @@ fn extract_content_path(search_html: &str, query: &str) -> Option<String> {
 pub async fn query_wikipedia(client: &Client, selection: &str) -> Result<String, String> {
     let base = DEFAULT_WIKI_BASE_URL.trim_end_matches('/');
 
+    // First do a search to get the content prefix
     let search_html = client
         .get(format!("{base}/search"))
         .query(&[("pattern", selection)])
@@ -345,6 +343,28 @@ pub async fn query_wikipedia(client: &Client, selection: &str) -> Result<String,
         .await
         .map_err(|e| format!("failed to read search response: {e}"))?;
 
+    // Try to extract the content prefix from search results
+    let content_prefix = extract_content_prefix(&search_html);
+
+    // Try direct match first if we have a prefix
+    let slug = to_title_slug(selection);
+    if let Some(prefix) = &content_prefix {
+        if !slug.is_empty() {
+            let direct_url = format!("{base}/{prefix}/{slug}");
+            if let Ok(resp) = client.get(&direct_url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.text().await {
+                        let text = html_to_text(&body);
+                        if !text.is_empty() {
+                            return Ok(text);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fall back to first search result
     let content_path = extract_content_path(&search_html, selection)
         .ok_or_else(|| "no wikipedia matches found in search results".to_string())?;
 
@@ -367,6 +387,23 @@ pub async fn query_wikipedia(client: &Client, selection: &str) -> Result<String,
     } else {
         Ok(text)
     }
+}
+
+fn extract_content_prefix(search_html: &str) -> Option<String> {
+    let document = Html::parse_document(search_html);
+    let selector = Selector::parse("a[href]").ok()?;
+
+    for anchor in document.select(&selector) {
+        let href = anchor.value().attr("href")?;
+        if href.starts_with("/content/") {
+            // Extract everything up to and including /A/ (or similar path segment)
+            let path = href.trim_start_matches('/');
+            if let Some(pos) = path.rfind('/') {
+                return Some(path[..pos].to_string());
+            }
+        }
+    }
+    None
 }
 
 fn html_to_text(html: &str) -> String {
@@ -408,7 +445,16 @@ fn html_to_text(html: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_content_path, html_to_text};
+    use super::{extract_content_path, html_to_text, to_title_slug};
+
+    #[test]
+    fn to_title_slug_formats_correctly() {
+        assert_eq!(to_title_slug("bird"), "Bird");
+        assert_eq!(to_title_slug("BIRD"), "Bird");
+        assert_eq!(to_title_slug("hello world"), "Hello_world");
+        assert_eq!(to_title_slug("  spaced  "), "Spaced");
+        assert_eq!(to_title_slug(""), "");
+    }
 
     #[test]
     fn parses_first_content_link_from_search_html() {
