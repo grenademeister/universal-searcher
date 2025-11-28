@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
+const PROVIDERS = ["openai", "gemini"];
+
 function App() {
   const [overlay, setOverlay] = useState({
     text: "Loading...",
     model: "",
-    provider: "openai",
+    provider: PROVIDERS[0],
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [provider, setProvider] = useState("openai");
+  const [provider, setProvider] = useState(PROVIDERS[0]);
 
   useEffect(() => {
     fetchOverlay(provider);
@@ -43,16 +45,19 @@ function App() {
     const onKey = (event) => {
       if (event.key === "Tab") {
         event.preventDefault();
-        if (provider === "gemini") {
-          void fetchOverlay("gemini");
-        } else {
-          setProvider("gemini");
-        }
+        setProvider((current) => {
+          const index = PROVIDERS.indexOf(current);
+          if (index === -1) {
+            return PROVIDERS[0];
+          }
+          const nextIndex = (index + 1) % PROVIDERS.length;
+          return PROVIDERS[nextIndex];
+        });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [provider]);
+  }, []);
 
   async function fetchOverlay(targetProvider) {
     setLoading(true);
