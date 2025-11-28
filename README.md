@@ -1,20 +1,19 @@
-## Project Architecture (Current State)
+## Project Architecture
 
-- **Rust CLI (`overlay-cli`)**  
-  - Location: `src-tauri/src/bin/overlay_cli.rs`  
-  - Responsibility: Reads Wayland selection/clipboard via `wl-paste`, calls OpenAI Chat Completions, prints plain text to stdout. Uses env vars `OPENAI_API_KEY`, optional `OPENAI_MODEL` (default `gpt-4o-mini`), and optional `OVERLAY_PROMPT`.
+- **Tauri app (single binary)**  
+  - Backend logic lives in `src-tauri/src/overlay.rs` and is exposed via the `generate_overlay` command in `src-tauri/src/lib.rs`.  
+  - Reads Wayland selection/clipboard via `wl-paste`, then calls OpenAI or Gemini based on the requested provider and returns plain text to the frontend.  
+  - Frontend (`src/App.jsx` + `src/App.css`) renders the overlay text; press `Tab` to switch to Gemini. Window config sits in `src-tauri/tauri.conf.json` (480x300, frameless, transparent, always-on-top, resizable).
 
-- **Tauri App (Shell/Overlay)**  
-  - Rust entry: `src-tauri/src/lib.rs` (exposes `run_overlay_cli` command that spawns the CLI; auto-detects bundled CLI in resources, or uses `OVERLAY_CLI_PATH`, or PATH).  
-  - Frontend: `src/App.jsx` + `src/App.css` — minimal UI that only renders the CLI output (or loading/error text). Window config in `src-tauri/tauri.conf.json` (currently 480x300, frameless, transparent, always-on-top, resizable).
-  - Build packaging: `npm run tauri build` runs `npm run build` + `npm run build:overlay-cli`, bundles `resources/overlay-cli`, and ships both binaries together.
+## Configuration
 
-- **Scripts & Resources**  
-  - `package.json`: dev/build scripts; `build:overlay-cli` builds the CLI and copies it to `src-tauri/resources/overlay-cli`.  
-  - `src-tauri/capabilities/default.json`: permissions including window set-size/center for the overlay window.
+- Environment variables:  
+  - `OPENAI_API_KEY` (required for OpenAI), optional `OPENAI_MODEL` (default `gpt-4o-mini`).  
+  - `GEMINI_API_KEY` or `GEMINI_API_TOKEN` (required for Gemini), optional `GEMINI_MODEL` (default `gemini-2.5-flash`).  
+  - `OVERLAY_PROMPT` overrides the default concise system prompt.
+- Clipboard dependency: requires `wl-paste`; the backend tries primary selection first, then clipboard.
 
-## Where API Calls Happen
+## Build & Run
 
-- OpenAI chat call is implemented in `src-tauri/src/bin/overlay_cli.rs` inside `query_openai`, using `reqwest` with rustls.  
-  - Inputs: `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o-mini`), `OVERLAY_PROMPT` (default concise prompt), selected text from `wl-paste`.  
-  - Output: stdout plaintext for the Tauri frontend to display.
+- Development: `npm run tauri dev` (runs `npm run dev` for the frontend).  
+- Production: `npm run tauri build` (runs `npm run build` and bundles a single Tauri binary; no extra CLI artifact needed).

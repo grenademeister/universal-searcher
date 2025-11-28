@@ -4,7 +4,8 @@ use std::env;
 use std::process::Command;
 
 const DEFAULT_PROMPT: &str = "Answer concisely based on the provided text.";
-const GEMINI_MODEL: &str = "gemini-2.5-flash";
+const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_GEMINI_MODEL: &str = "gemini-2.5-flash";
 
 #[derive(Clone, Copy)]
 enum Provider {
@@ -12,52 +13,50 @@ enum Provider {
     Gemini,
 }
 
-#[tokio::main]
-async fn main() {
-    if let Err(err) = run().await {
-        eprintln!("{err}");
-        std::process::exit(1);
+impl Provider {
+    fn from_option(input: Option<String>) -> Self {
+        if let Some(value) = input {
+            if value.eq_ignore_ascii_case("gemini") {
+                return Provider::Gemini;
+            }
+        }
+
+        Provider::OpenAi
     }
 }
 
-async fn run() -> Result<(), String> {
+pub async fn generate(provider: Option<String>) -> Result<String, String> {
     let selection = fetch_selection()?;
 
     if selection.trim().is_empty() {
-        println!("(empty)");
-        return Ok(());
+        return Ok("(empty)".to_string());
     }
 
-    let prompt = DEFAULT_PROMPT.to_string();
-    let provider = resolve_provider_from_args();
+    let provider = Provider::from_option(provider);
+    let prompt = env::var("OVERLAY_PROMPT").unwrap_or_else(|_| DEFAULT_PROMPT.to_string());
+    let client = Client::new();
 
-    let reply = match provider {
+    match provider {
         Provider::OpenAi => {
-            let api_key =
-                env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY is not set".to_string())?;
-            let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
-            query_openai(&api_key, &model, &prompt, &selection).await
+            let api_key = env::var("OPENAI_API_KEY")
+                .map_err(|_| "OPENAI_API_KEY is not set".to_string())?;
+
+            let model = env::var("OPENAI_MODEL")
+                .unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string());
+
+            query_openai(&client, &api_key, &model, &prompt, &selection).await
         }
         Provider::Gemini => {
             let api_key = env::var("GEMINI_API_KEY")
                 .or_else(|_| env::var("GEMINI_API_TOKEN"))
                 .map_err(|_| "GEMINI_API_KEY or GEMINI_API_TOKEN is not set".to_string())?;
-            query_gemini(&api_key, GEMINI_MODEL, &prompt, &selection).await
-        }
-    }?;
 
-    println!("{reply}");
+            let model = env::var("GEMINI_MODEL")
+                .unwrap_or_else(|_| DEFAULT_GEMINI_MODEL.to_string());
 
-    Ok(())
-}
-
-fn resolve_provider_from_args() -> Provider {
-    if let Some(arg1) = env::args().nth(1) {
-        if arg1.to_lowercase() == "gemini" {
-            return Provider::Gemini;
+            query_gemini(&client, &api_key, &model, &prompt, &selection).await
         }
     }
-    Provider::OpenAi
 }
 
 fn fetch_selection() -> Result<String, String> {
@@ -94,14 +93,13 @@ fn run_wl_paste(primary: bool) -> Result<Option<String>, String> {
     }
 }
 
-pub async fn query_openai(
+async fn query_openai(
+    client: &Client,
     api_key: &str,
     model: &str,
     prompt: &str,
     selection: &str,
 ) -> Result<String, String> {
-    let client = Client::new();
-
     let body = serde_json::json!({
         "model": model,
         "messages": [
@@ -143,20 +141,13 @@ pub async fn query_openai(
     }
 }
 
-pub async fn query_gemini(
+async fn query_gemini(
+    client: &Client,
     api_key_or_token: &str,
-    model: &str, // e.g. "gemini-2.5-flash" or "gemini-3-pro-preview"
+    model: &str,
     prompt: &str,
     selection: &str,
 ) -> Result<String, String> {
-    let client = Client::new();
-
-    let model = if model.is_empty() {
-        "gemini-2.5-flash"
-    } else {
-        model
-    };
-
     let base_url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
         model
@@ -197,8 +188,6 @@ pub async fn query_gemini(
         .await
         .map_err(|e| format!("failed to parse api response: {e}"))?;
 
-    // Gemini responses often contain `candidates[..].content.parts[..].text`.
-    // Fallbacks included for common shapes.
     if let Some(text) = parsed
         .get("candidates")
         .and_then(|c| c.get(0))

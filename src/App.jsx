@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
@@ -7,10 +7,9 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState("openai");
-  const panelRef = useRef(null);
 
   useEffect(() => {
-    run(provider);
+    fetchOverlay(provider);
   }, [provider]);
 
   useEffect(() => {
@@ -41,7 +40,7 @@ function App() {
       if (event.key === "Tab") {
         event.preventDefault();
         if (provider === "gemini") {
-          void run("gemini");
+          void fetchOverlay("gemini");
         } else {
           setProvider("gemini");
         }
@@ -51,16 +50,16 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [provider]);
 
-  async function run(targetProvider) {
+  async function fetchOverlay(targetProvider) {
     setLoading(true);
     setError("");
     try {
-      const result = await invoke("run_overlay_cli", {
+      const result = await invoke("generate_overlay", {
         provider: targetProvider,
       });
       setText(result ?? "");
     } catch (err) {
-      setError(err?.toString() ?? "Failed to run overlay-cli");
+      setError(err?.toString() ?? "Failed to generate overlay");
     } finally {
       setLoading(false);
     }
@@ -68,7 +67,7 @@ function App() {
 
   return (
     <main className="overlay">
-      <section className="panel" ref={panelRef}>
+      <section className="panel">
         <p className={`overlay-text ${error ? "error" : ""}`}>
           {loading ? "Loading…" : error || text}
         </p>
