@@ -1,9 +1,9 @@
 use reqwest::Client;
+use scraper::{Html, Selector};
 use serde::Serialize;
 use serde_json::Value;
 use std::env;
 use std::process::Command;
-use scraper::{Html, Selector};
 
 const DEFAULT_PROMPT: &str = "Answer concisely based on the user's selected text. \
  If the text is a question, provide a clear and direct answer with one or few sentences. \

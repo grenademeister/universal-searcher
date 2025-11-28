@@ -10,6 +10,7 @@ function App() {
     model: "",
     provider: PROVIDERS[0],
   });
+  const [cache, setCache] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState(PROVIDERS[0]);
@@ -59,18 +60,53 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  async function fetchOverlay(targetProvider) {
-    setLoading(true);
-    setError("");
+  const nextProvider = (current) => {
+    const index = PROVIDERS.indexOf(current);
+    if (index === -1) return PROVIDERS[0];
+    return PROVIDERS[(index + 1) % PROVIDERS.length];
+  };
+
+  async function prefetchOverlay(targetProvider) {
+    if (cache[targetProvider]) return;
     try {
       const result = await invoke("generate_overlay", {
         provider: targetProvider,
       });
-      setOverlay({
+      const formatted = {
         text: result?.text ?? "",
         model: result?.model ?? "",
         provider: result?.provider ?? targetProvider,
+      };
+      setCache((prev) => ({ ...prev, [formatted.provider]: formatted }));
+    } catch {
+      // best-effort prefetch; ignore errors
+    }
+  }
+
+  async function fetchOverlay(targetProvider) {
+    setLoading(true);
+    setError("");
+
+    const cached = cache[targetProvider];
+    if (cached) {
+      setOverlay(cached);
+      setLoading(false);
+      prefetchOverlay(nextProvider(targetProvider));
+      return;
+    }
+
+    try {
+      const result = await invoke("generate_overlay", {
+        provider: targetProvider,
       });
+      const formatted = {
+        text: result?.text ?? "",
+        model: result?.model ?? "",
+        provider: result?.provider ?? targetProvider,
+      };
+      setOverlay(formatted);
+      setCache((prev) => ({ ...prev, [formatted.provider]: formatted }));
+      prefetchOverlay(nextProvider(formatted.provider));
     } catch (err) {
       setError(err?.toString() ?? "Failed to generate overlay");
     } finally {
