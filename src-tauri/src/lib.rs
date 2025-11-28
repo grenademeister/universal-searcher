@@ -1,7 +1,7 @@
 mod overlay;
 
 #[tauri::command]
-async fn generate_overlay(provider: Option<String>) -> Result<String, String> {
+async fn generate_overlay(provider: Option<String>) -> Result<overlay::OverlayResponse, String> {
     overlay::generate(provider).await
 }
 

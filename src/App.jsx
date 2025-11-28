@@ -3,7 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 function App() {
-  const [text, setText] = useState("Loading...");
+  const [overlay, setOverlay] = useState({
+    text: "Loading...",
+    model: "",
+    provider: "openai",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState("openai");
@@ -57,7 +61,11 @@ function App() {
       const result = await invoke("generate_overlay", {
         provider: targetProvider,
       });
-      setText(result ?? "");
+      setOverlay({
+        text: result?.text ?? "",
+        model: result?.model ?? "",
+        provider: result?.provider ?? targetProvider,
+      });
     } catch (err) {
       setError(err?.toString() ?? "Failed to generate overlay");
     } finally {
@@ -68,8 +76,11 @@ function App() {
   return (
     <main className="overlay">
       <section className="panel">
+        <p className="overlay-meta">
+          Model: {overlay.model || overlay.provider || "unknown"}
+        </p>
         <p className={`overlay-text ${error ? "error" : ""}`}>
-          {loading ? "Loading…" : error || text}
+          {loading ? "Loading…" : error || overlay.text}
         </p>
       </section>
     </main>

@@ -59,3 +59,9 @@ body {
 .overlay-text.error {
   color: #f29b9b;
 }
+
+.overlay-meta {
+  margin: 0;
+  color: #9aa2b5;
+  font-size: 0.9rem;
+}

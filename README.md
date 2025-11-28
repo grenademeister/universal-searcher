@@ -2,8 +2,8 @@
 
 - **Tauri app (single binary)**  
   - Backend logic lives in `src-tauri/src/overlay.rs` and is exposed via the `generate_overlay` command in `src-tauri/src/lib.rs`.  
-  - Reads Wayland selection/clipboard via `wl-paste`, then calls OpenAI or Gemini based on the requested provider and returns plain text to the frontend.  
-  - Frontend (`src/App.jsx` + `src/App.css`) renders the overlay text; press `Tab` to switch to Gemini. Window config sits in `src-tauri/tauri.conf.json` (480x300, frameless, transparent, always-on-top, resizable).
+  - Reads Wayland selection/clipboard via `wl-paste`, then calls OpenAI or Gemini based on the requested provider and returns text plus model metadata to the frontend.  
+  - Frontend (`src/App.jsx` + `src/App.css`) renders the overlay text and shows the active model (e.g., `Model: gpt-4o-mini`); press `Tab` to switch to Gemini. Window config sits in `src-tauri/tauri.conf.json` (480x300, frameless, transparent, always-on-top, resizable).
 
 ## Configuration
 
