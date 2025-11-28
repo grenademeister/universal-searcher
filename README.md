@@ -1,19 +1,32 @@
-## Project Architecture
+# Search Overlay
 
-- **Tauri app (single binary)**  
-  - Backend logic lives in `src-tauri/src/overlay.rs` and is exposed via the `generate_overlay` command in `src-tauri/src/lib.rs`.  
-  - Reads Wayland selection/clipboard via `wl-paste`, then calls OpenAI or Gemini based on the requested provider and returns text plus model metadata to the frontend.  
-  - Frontend (`src/App.jsx` + `src/App.css`) renders the overlay text and shows the active model (e.g., `Model: gpt-4o-mini`); press `Tab` to switch to Gemini. Window config sits in `src-tauri/tauri.conf.json` (480x300, frameless, transparent, always-on-top, resizable).
+A Wayland desktop overlay that answers questions about selected text using AI (OpenAI, Gemini) or offline Wikipedia (Kiwix).
 
-## Configuration
+## How It Works
 
-- Environment variables:  
-  - `OPENAI_API_KEY` (required for OpenAI), optional `OPENAI_MODEL` (default `gpt-4o-mini`).  
-  - `GEMINI_API_KEY` or `GEMINI_API_TOKEN` (required for Gemini), optional `GEMINI_MODEL` (default `gemini-2.5-flash`).  
-  - `OVERLAY_PROMPT` overrides the default concise system prompt.
-- Clipboard dependency: requires `wl-paste`; the backend tries primary selection first, then clipboard.
+1. Reads selected text from Wayland clipboard (`wl-paste`)
+2. Sends it to the chosen provider (Wikipedia, Gemini, or OpenAI)
+3. Displays the response in a frameless, always-on-top overlay
 
-## Build & Run
+**Keyboard controls:**
+- `Tab` — cycle providers
+- `↑/↓` — switch models within provider
+- `Space` — close
 
-- Development: `npm run tauri dev` (runs `npm run dev` for the frontend).  
-- Production: `npm run tauri build` (runs `npm run build` and bundles a single Tauri binary; no extra CLI artifact needed).
+## Requirements
+
+- Linux with Wayland
+- `wl-paste` installed
+- For AI providers: `OPENAI_API_KEY` or `GEMINI_API_KEY`
+- For Wikipedia: local Kiwix server at `localhost:8080`
+
+## Run
+
+```bash
+# Development
+npm install
+npm run tauri dev
+
+# Production build
+npm run tauri build
+```
