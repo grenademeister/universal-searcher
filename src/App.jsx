@@ -82,7 +82,9 @@ function App() {
     <main className="overlay">
       <section className="panel">
         <p className="overlay-meta">
-          Model: {overlay.model || overlay.provider || "unknown"}
+          Model: {loading
+            ? "Loading…"
+            : overlay.model || overlay.provider || "unknown"}
         </p>
         <p className={`overlay-text ${error ? "error" : ""}`}>
           {loading ? "Loading…" : error || overlay.text}
