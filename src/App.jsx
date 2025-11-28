@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-const PROVIDERS = ["openai", "gemini"];
+const PROVIDERS = ["gemini", "openai"];
 
 function App() {
   const [overlay, setOverlay] = useState({
