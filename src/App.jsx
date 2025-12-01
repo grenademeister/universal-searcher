@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { invoke } from "@tauri-apps/api/core";
+import { PhysicalSize } from "@tauri-apps/api/dpi";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./App.css";
 
 const PROVIDERS = ["wikipedia", "gemini", "openai"];
@@ -14,6 +16,10 @@ const DEFAULT_MODELS = {
   wikipedia: "kiwix-wikipedia",
   gemini: "gemini-2.5-flash",
   openai: "gpt-5-mini",
+};
+const DEFAULT_APPEARANCE = {
+  background_color: "transparent",
+  font_color: "#e9ecf1",
 };
 
 const initialModelIndices = Object.fromEntries(
@@ -58,6 +64,25 @@ function App() {
   useEffect(() => {
     fetchOverlay(provider, currentModel);
   }, [provider, currentModel]);
+
+  useEffect(() => {
+    async function hydrateConfig() {
+      try {
+        const cfg = await invoke("load_config");
+        applyAppearance({
+          background_color:
+            cfg?.appearance?.background_color || DEFAULT_APPEARANCE.background_color,
+          font_color: cfg?.appearance?.font_color || DEFAULT_APPEARANCE.font_color,
+        });
+        await applyWindowSize(cfg?.window);
+      } catch (err) {
+        console.warn("Failed to load config; using defaults.", err);
+        applyAppearance(DEFAULT_APPEARANCE);
+      }
+    }
+
+    hydrateConfig();
+  }, []);
 
   useEffect(() => {
     const onError = (event) => {
@@ -126,6 +151,26 @@ function App() {
   };
 
   const makeCacheKey = (prov, modelName) => `${prov}:${modelName}`;
+
+  const applyAppearance = (appearanceConfig) => {
+    const bg = appearanceConfig?.background_color || DEFAULT_APPEARANCE.background_color;
+    const fg = appearanceConfig?.font_color || DEFAULT_APPEARANCE.font_color;
+    const root = document.documentElement;
+    root.style.setProperty("--overlay-bg", bg);
+    root.style.setProperty("--overlay-text", fg);
+  };
+
+  const applyWindowSize = async (windowConfig) => {
+    const width = Number(windowConfig?.width);
+    const height = Number(windowConfig?.height);
+    if (!width || !height) return;
+    try {
+      const current = getCurrentWindow();
+      await current.setSize(new PhysicalSize(width, height));
+    } catch (err) {
+      console.warn("Unable to resize window from config.", err);
+    }
+  };
 
   async function prefetchOverlay(targetProvider, targetModel) {
     if (!targetProvider || !targetModel) return;

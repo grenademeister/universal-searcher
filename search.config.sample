@@ -1,0 +1,9 @@
+[appearance]
+# CSS color values for the overlay background and text
+background_color = "#0b1220"
+font_color = "#e9ecf1"
+
+[window]
+# Dimensions in physical pixels
+width = 640
+height = 400

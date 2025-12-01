@@ -20,6 +20,24 @@ A Wayland desktop overlay that answers questions about selected text using AI (O
 - For AI providers: `OPENAI_API_KEY` or `GEMINI_API_KEY`
 - For Wikipedia: local Kiwix server at `localhost:8080`
 
+## Configuration
+
+Create `~/.config/search/search.config` (TOML) to override the overlay appearance and window size:
+
+```toml
+[appearance]
+# CSS color values
+background_color = "#0b1220"
+font_color = "#e9ecf1"
+
+[window]
+# Dimensions in physical pixels
+width = 640
+height = 400
+```
+
+Missing or invalid values fall back to the defaults (transparent background, light text, 480x300 window).
+
 ## Run
 
 ```bash

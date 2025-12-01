@@ -1,10 +1,19 @@
 :root {
+  --overlay-bg: transparent;
+  --overlay-text: #e9ecf1;
+  --overlay-muted: #9aa2b5;
+  --overlay-secondary: #cbd3e1;
+  --overlay-accent: #9dd4ff;
+  --overlay-error: #f29b9b;
+  --overlay-blockquote-border: rgba(233, 236, 241, 0.25);
+  --overlay-code-bg: rgba(233, 236, 241, 0.1);
+  --overlay-pre-bg: rgba(233, 236, 241, 0.08);
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.5;
   font-weight: 500;
-  color: #e9ecf1;
-  background-color: transparent;
+  color: var(--overlay-text);
+  background-color: var(--overlay-bg);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -16,7 +25,8 @@
 
 body {
   margin: 0;
-  background: transparent;
+  background: var(--overlay-bg);
+  color: var(--overlay-text);
 }
 
 .overlay {
@@ -25,7 +35,7 @@ body {
   align-items: flex-start;
   justify-content: center;
   padding: 12px;
-  background: transparent;
+  background: var(--overlay-bg);
   overflow: auto;
 }
 
@@ -50,7 +60,7 @@ body {
   padding: 0;
   width: 100%;
   max-width: 880px;
-  color: #e9ecf1;
+  color: var(--overlay-text);
   white-space: normal;
   word-break: break-word;
   text-align: left;
@@ -58,7 +68,7 @@ body {
 }
 
 .overlay-text.error {
-  color: #f29b9b;
+  color: var(--overlay-error);
 }
 
 .overlay-status {
@@ -101,19 +111,19 @@ body {
 .overlay-text blockquote {
   margin: 0 0 10px;
   padding-left: 10px;
-  border-left: 3px solid rgba(233, 236, 241, 0.25);
-  color: #cbd3e1;
+  border-left: 3px solid var(--overlay-blockquote-border);
+  color: var(--overlay-muted);
 }
 
 .overlay-text code {
-  background: rgba(233, 236, 241, 0.1);
+  background: var(--overlay-code-bg);
   padding: 2px 4px;
   border-radius: 4px;
   font-size: 0.95em;
 }
 
 .overlay-text pre {
-  background: rgba(233, 236, 241, 0.08);
+  background: var(--overlay-pre-bg);
   border-radius: 8px;
   padding: 12px;
   overflow-x: auto;
@@ -127,21 +137,21 @@ body {
 }
 
 .overlay-text a {
-  color: #9dd4ff;
+  color: var(--overlay-accent);
   text-decoration: underline;
   text-decoration-thickness: 1px;
 }
 
 .overlay-meta {
   margin: 0;
-  color: #9aa2b5;
+  color: var(--overlay-muted);
   font-size: 0.9rem;
   align-self: center;
 }
 
 .overlay-query {
   margin: 0;
-  color: #cbd3e1;
+  color: var(--overlay-secondary);
   font-weight: 500;
   width: 100%;
   max-width: 880px;
